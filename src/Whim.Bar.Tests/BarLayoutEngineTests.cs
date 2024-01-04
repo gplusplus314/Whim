@@ -51,6 +51,8 @@ public class BarLayoutEngineTests
 		// Then
 		Assert.NotSame(engine, newEngine);
 		Assert.Same(newEngine, newEngine2);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine2);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -73,12 +75,36 @@ public class BarLayoutEngineTests
 	{
 		// Given
 		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		innerLayoutEngine.FocusWindowInDirection(direction, window).Returns(innerLayoutEngine);
 
 		// When
-		engine.FocusWindowInDirection(direction, window);
+		ILayoutEngine newEngine = engine.FocusWindowInDirection(direction, window);
 
 		// Then
 		innerLayoutEngine.Received(1).FocusWindowInDirection(direction, window);
+		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void FocusWindowInDirection_NotSame(
+		ILayoutEngine innerLayoutEngine,
+		ILayoutEngine focusWindowInDirectionResult,
+		IWindow window,
+		[Frozen] Direction direction
+	)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+
+		innerLayoutEngine.FocusWindowInDirection(direction, window).Returns(focusWindowInDirectionResult);
+
+		// When
+		ILayoutEngine newEngine = engine.FocusWindowInDirection(direction, window);
+
+		// Then
+		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -115,6 +141,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -135,6 +162,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -155,6 +183,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -170,6 +199,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -185,6 +215,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -200,6 +231,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -220,6 +252,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -235,6 +268,7 @@ public class BarLayoutEngineTests
 
 		// Then
 		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 
 	[Theory, AutoSubstituteData]
@@ -303,5 +337,111 @@ public class BarLayoutEngineTests
 
 		// Then
 		innerLayoutEngine.Received(1).DoLayout(Arg.Is<Rectangle<int>>(l => l.Height == 0), monitor);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void PerformCustomAction_NotSame(ILayoutEngine innerLayoutEngine, ILayoutEngine performCustomActionResult)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		LayoutEngineCustomAction<string> action =
+			new()
+			{
+				Name = "Action",
+				Payload = "payload",
+				Window = null
+			};
+		innerLayoutEngine.PerformCustomAction(action).Returns(performCustomActionResult);
+
+		// When
+		ILayoutEngine newEngine = engine.PerformCustomAction(action);
+
+		// Then
+		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void PerformCustomAction_Same(ILayoutEngine innerLayoutEngine)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		LayoutEngineCustomAction<string> action =
+			new()
+			{
+				Name = "Action",
+				Payload = "payload",
+				Window = null
+			};
+		innerLayoutEngine.PerformCustomAction(action).Returns(innerLayoutEngine);
+
+		// When
+		ILayoutEngine newEngine = engine.PerformCustomAction(action);
+
+		// Then
+		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowStart_NotSame(ILayoutEngine innerLayoutEngine, ILayoutEngine minimizeWindowStartResult)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		IWindow window = Substitute.For<IWindow>();
+		innerLayoutEngine.MinimizeWindowStart(window).Returns(minimizeWindowStartResult);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowStart(window);
+
+		// Then
+		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowStart_Same(ILayoutEngine innerLayoutEngine, IWindow window)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		innerLayoutEngine.MinimizeWindowStart(window).Returns(innerLayoutEngine);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowStart(window);
+
+		// Then
+		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowEnd_NotSame(ILayoutEngine innerLayoutEngine, ILayoutEngine minimizeWindowEndResult)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		IWindow window = Substitute.For<IWindow>();
+		innerLayoutEngine.MinimizeWindowEnd(window).Returns(minimizeWindowEndResult);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowEnd(window);
+
+		// Then
+		Assert.NotSame(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowEnd_Same(ILayoutEngine innerLayoutEngine, IWindow window)
+	{
+		// Given
+		BarLayoutEngine engine = CreateSut(innerLayoutEngine);
+		innerLayoutEngine.MinimizeWindowEnd(window).Returns(innerLayoutEngine);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowEnd(window);
+
+		// Then
+		Assert.Same(engine, newEngine);
+		Assert.IsType<BarLayoutEngine>(newEngine);
 	}
 }

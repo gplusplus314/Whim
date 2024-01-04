@@ -62,7 +62,7 @@ public abstract record BaseProxyLayoutEngine : ILayoutEngine
 	public abstract IWindow? GetFirstWindow();
 
 	/// <inheritdoc/>
-	public abstract void FocusWindowInDirection(Direction direction, IWindow window);
+	public abstract ILayoutEngine FocusWindowInDirection(Direction direction, IWindow window);
 
 	/// <inheritdoc/>
 	public abstract ILayoutEngine SwapWindowInDirection(Direction direction, IWindow window);
@@ -75,6 +75,15 @@ public abstract record BaseProxyLayoutEngine : ILayoutEngine
 
 	/// <inheritdoc/>
 	public abstract IEnumerable<IWindowState> DoLayout(IRectangle<int> rectangle, IMonitor monitor);
+
+	/// <inheritdoc/>
+	public abstract ILayoutEngine PerformCustomAction<T>(LayoutEngineCustomAction<T> action);
+
+	/// <inheritdoc/>
+	public abstract ILayoutEngine MinimizeWindowStart(IWindow window);
+
+	/// <inheritdoc/>
+	public abstract ILayoutEngine MinimizeWindowEnd(IWindow window);
 
 	/// <summary>
 	/// Checks to see if this <cref name="IImmutableLayoutEngine"/>

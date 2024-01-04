@@ -166,8 +166,16 @@ public sealed class DeferWindowPosHandle : IDisposable
 			_context.NativeManager.ShowWindowNoActivate(window.Handle);
 		}
 
-		_internalContext
-			.CoreNativeManager
-			.SetWindowPos(window.Handle, source.HwndInsertAfter, rect.X, rect.Y, rect.Width, rect.Height, uFlags);
+		Logger.Verbose($"Setting window position for {window} to {rect} with flags {uFlags}");
+
+		_internalContext.CoreNativeManager.SetWindowPos(
+			window.Handle,
+			source.HwndInsertAfter,
+			rect.X,
+			rect.Y,
+			rect.Width,
+			rect.Height,
+			uFlags
+		);
 	}
 }

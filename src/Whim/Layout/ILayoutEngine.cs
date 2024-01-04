@@ -62,6 +62,28 @@ public interface ILayoutEngine
 	ILayoutEngine RemoveWindow(IWindow window);
 
 	/// <summary>
+	/// Called when a window is being minimized - i.e., the window size will become
+	/// <see cref="WindowSize.Minimized"/>.
+	///
+	/// The layout engine can choose to ignore this call, if it does not support minimizing
+	/// windows.
+	/// </summary>
+	/// <param name="window"></param>
+	/// <returns></returns>
+	ILayoutEngine MinimizeWindowStart(IWindow window);
+
+	/// <summary>
+	/// Called when a window is being unminimized - i.e., the window size will no longer be
+	/// <see cref="WindowSize.Minimized"/>.
+	///
+	/// The layout engine can choose to ignore this call, if it does not support unminimizing
+	/// windows.
+	/// </summary>
+	/// <param name="window"></param>
+	/// <returns></returns>
+	ILayoutEngine MinimizeWindowEnd(IWindow window);
+
+	/// <summary>
 	/// Determines whether the layout engine contains the <paramref name="window"/>.
 	/// </summary>
 	/// <param name="window"></param>
@@ -94,7 +116,7 @@ public interface ILayoutEngine
 	/// </summary>
 	/// <param name="direction">The direction to focus in.</param>
 	/// <param name="window">The origin window</param>
-	void FocusWindowInDirection(Direction direction, IWindow window);
+	ILayoutEngine FocusWindowInDirection(Direction direction, IWindow window);
 
 	/// <summary>
 	/// Swaps the <paramref name="window"/> in the <paramref name="direction"/>.
@@ -117,6 +139,26 @@ public interface ILayoutEngine
 	/// <param name="window"></param>
 	/// <returns>The new <see cref="ILayoutEngine"/> after the move.</returns>
 	ILayoutEngine MoveWindowEdgesInDirection(Direction edges, IPoint<double> deltas, IWindow window);
+
+	/// <summary>
+	/// Attempts to trigger a custom action in a layout engine.
+	/// </summary>
+	/// <remarks>
+	/// This method is used to handle custom actions that are not part of the
+	/// <see cref="ILayoutEngine"/> interface.
+	/// For example, the SliceLayoutEngine uses this method to promote/demote windows in the
+	/// window stack.
+	/// </remarks>
+	/// <typeparam name="T">
+	/// The type of the <paramref name="action"/>'s payload.
+	/// </typeparam>
+	/// <param name="action">
+	/// Metadata about the action to perform, and the payload to perform it with.
+	/// </param>
+	/// <returns>
+	/// A new layout engine if the action is handled, otherwise it returns the current layout engine.
+	/// </returns>
+	ILayoutEngine PerformCustomAction<T>(LayoutEngineCustomAction<T> action);
 
 	/// <summary>
 	/// Checks to see if this <see cref="ILayoutEngine"/> or a child layout engine is type

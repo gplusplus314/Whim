@@ -25,12 +25,11 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 	private Monitor[] _monitors = Array.Empty<Monitor>();
 	private bool _disposedValue;
 
-	/// <summary>
-	/// The <see cref="IMonitor"/> which currently has focus.
-	/// </summary>
 	public IMonitor ActiveMonitor { get; private set; }
 
 	public IMonitor PrimaryMonitor { get; private set; }
+
+	public IMonitor LastWhimActiveMonitor { get; set; }
 
 	public int Length => _monitors.Length;
 
@@ -61,6 +60,7 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 			(_monitors?.FirstOrDefault(m => m.IsPrimary)) ?? throw new Exception("No primary monitor found.");
 		ActiveMonitor = primaryMonitor;
 		PrimaryMonitor = primaryMonitor;
+		LastWhimActiveMonitor = primaryMonitor;
 	}
 
 	public void Initialize()
@@ -74,12 +74,13 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 
 	public void WindowFocused(IWindow? window)
 	{
-		Logger.Debug($"Focusing on {window}");
-
 		HWND hwnd = window?.Handle ?? _internalContext.CoreNativeManager.GetForegroundWindow();
-		HMONITOR hMONITOR = _internalContext
-			.CoreNativeManager
-			.MonitorFromWindow(hwnd, MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST);
+		Logger.Debug($"Focusing hwnd {hwnd}");
+
+		HMONITOR hMONITOR = _internalContext.CoreNativeManager.MonitorFromWindow(
+			hwnd,
+			MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST
+		);
 
 		foreach (Monitor monitor in _monitors)
 		{
@@ -88,6 +89,11 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 				Logger.Debug($"Setting active monitor to {monitor}");
 
 				ActiveMonitor = monitor;
+
+				if (window is not null)
+				{
+					LastWhimActiveMonitor = monitor;
+				}
 				break;
 			}
 		}
@@ -124,13 +130,11 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 		// If we update monitors too quickly, the reported working area can sometimes be the
 		// monitor's bounds, which is incorrect. So, we wait a bit before updating the monitors.
 		// This gives Windows some to figure out the correct working area.
-		_internalContext
-			.CoreNativeManager
-			.TryEnqueue(async () =>
-			{
-				await Task.Delay(5000).ConfigureAwait(true);
-				WindowMessageMonitor_MonitorsChanged(sender, e);
-			});
+		_context.NativeManager.TryEnqueue(async () =>
+		{
+			await Task.Delay(5000).ConfigureAwait(true);
+			WindowMessageMonitor_MonitorsChanged(sender, e);
+		});
 	}
 
 	private void WindowMessageMonitor_MonitorsChanged(object? sender, WindowMessageMonitorEventArgs e)
@@ -196,9 +200,10 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 
 	private HMONITOR GetPrimaryHMonitor()
 	{
-		return _internalContext
-			.CoreNativeManager
-			.MonitorFromPoint(new Point(0, 0), MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY);
+		return _internalContext.CoreNativeManager.MonitorFromPoint(
+			new Point(0, 0),
+			MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY
+		);
 	}
 
 	/// <summary>
@@ -254,9 +259,10 @@ internal class MonitorManager : IInternalMonitorManager, IMonitorManager
 	public IMonitor GetMonitorAtPoint(IPoint<int> point)
 	{
 		Logger.Debug($"Getting monitor at point {point}");
-		HMONITOR hmonitor = _internalContext
-			.CoreNativeManager
-			.MonitorFromPoint(point.ToSystemPoint(), MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST);
+		HMONITOR hmonitor = _internalContext.CoreNativeManager.MonitorFromPoint(
+			point.ToSystemPoint(),
+			MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST
+		);
 
 		IMonitor? monitor = _monitors.FirstOrDefault(m => m._hmonitor == hmonitor);
 		if (monitor == null)

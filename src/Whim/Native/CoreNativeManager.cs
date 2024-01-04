@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using Microsoft.UI.Dispatching;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
@@ -269,9 +268,6 @@ internal class CoreNativeManager : ICoreNativeManager
 		PInvoke.WTSRegisterSessionNotification(hWnd, dwFlags);
 
 	public BOOL WTSUnRegisterSessionNotification(HWND hWnd) => PInvoke.WTSUnRegisterSessionNotification(hWnd);
-
-	public bool TryEnqueue(DispatcherQueueHandler callback) =>
-		DispatcherQueue.GetForCurrentThread().TryEnqueue(callback);
 
 	private Microsoft.UI.Xaml.Window? _window;
 

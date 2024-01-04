@@ -59,9 +59,10 @@ internal record FloatingLayoutEngine : BaseProxyLayoutEngine
 	/// couldn't get the window's rectangle).
 	/// </param>
 	/// <returns></returns>
-	private FloatingLayoutEngine UpdateInner(ILayoutEngine newInnerLayoutEngine, IWindow gcWindow)
+	private FloatingLayoutEngine UpdateInner(ILayoutEngine newInnerLayoutEngine, IWindow? gcWindow)
 	{
-		ImmutableDictionary<IWindow, IRectangle<double>> newFloatingWindowRects = _floatingWindowRects.Remove(gcWindow);
+		ImmutableDictionary<IWindow, IRectangle<double>> newFloatingWindowRects =
+			gcWindow != null ? _floatingWindowRects.Remove(gcWindow) : _floatingWindowRects;
 
 		return InnerLayoutEngine == newInnerLayoutEngine && _floatingWindowRects == newFloatingWindowRects
 			? this
@@ -214,7 +215,7 @@ internal record FloatingLayoutEngine : BaseProxyLayoutEngine
 	}
 
 	/// <inheritdoc />
-	public override void FocusWindowInDirection(Direction direction, IWindow window)
+	public override ILayoutEngine FocusWindowInDirection(Direction direction, IWindow window)
 	{
 		if (IsWindowFloating(window))
 		{
@@ -222,10 +223,10 @@ internal record FloatingLayoutEngine : BaseProxyLayoutEngine
 			// a given point.
 			// As a workaround, we just focus the first window.
 			InnerLayoutEngine.GetFirstWindow()?.Focus();
-			return;
+			return this;
 		}
 
-		InnerLayoutEngine.FocusWindowInDirection(direction, window);
+		return UpdateInner(InnerLayoutEngine.FocusWindowInDirection(direction, window), window);
 	}
 
 	/// <inheritdoc />
@@ -239,10 +240,32 @@ internal record FloatingLayoutEngine : BaseProxyLayoutEngine
 			return this;
 		}
 
-		return InnerLayoutEngine.SwapWindowInDirection(direction, window);
+		return UpdateInner(InnerLayoutEngine.SwapWindowInDirection(direction, window), window);
 	}
 
 	/// <inheritdoc />
 	public override bool ContainsWindow(IWindow window) =>
 		_floatingWindowRects.ContainsKey(window) || InnerLayoutEngine.ContainsWindow(window);
+
+	/// <inheritdoc />
+	public override ILayoutEngine MinimizeWindowStart(IWindow window) =>
+		UpdateInner(InnerLayoutEngine.MinimizeWindowStart(window), window);
+
+	/// <inheritdoc />
+	public override ILayoutEngine MinimizeWindowEnd(IWindow window) =>
+		UpdateInner(InnerLayoutEngine.MinimizeWindowEnd(window), window);
+
+	/// <inheritdoc />
+	public override ILayoutEngine PerformCustomAction<T>(LayoutEngineCustomAction<T> action)
+	{
+		if (action.Window != null && IsWindowFloating(action.Window))
+		{
+			// At this stage, we don't have a way to get the window in a child layout engine at
+			// a given point.
+			// For now, we do nothing.
+			return this;
+		}
+
+		return UpdateInner(InnerLayoutEngine.PerformCustomAction(action), action.Window);
+	}
 }

@@ -58,8 +58,7 @@ public class DeferWindowPosHandleTests
 	)
 	{
 		internalCtx
-			.CoreNativeManager
-			.Received(expectedCallCount)
+			.CoreNativeManager.Received(expectedCallCount)
 			.SetWindowPos(
 				windowPosState.WindowState.Window.Handle,
 				windowPosState.HwndInsertAfter,
@@ -81,6 +80,8 @@ public class DeferWindowPosHandleTests
 		handle.Dispose();
 
 		// Then nothing happens
+		CustomAssert.NoContextCalls(ctx);
+		CustomAssert.NoInternalContextCalls(internalCtx);
 	}
 
 	[Theory, AutoSubstituteData<DeferWindowPosHandleCustomization>]
@@ -94,9 +95,9 @@ public class DeferWindowPosHandleTests
 		handle.Dispose();
 
 		// Then the layout is deferred
-		internalCtx
-			.DeferWindowPosManager
-			.DeferLayout(Arg.Is<List<WindowPosState>>(x => x.Count == 1 && x[0] == windowPosState));
+		internalCtx.DeferWindowPosManager.DeferLayout(
+			Arg.Is<List<WindowPosState>>(x => x.Count == 1 && x[0] == windowPosState)
+		);
 	}
 
 	[Theory]
@@ -175,8 +176,7 @@ public class DeferWindowPosHandleTests
 
 		// Then the window is not laid out
 		internalCtx
-			.CoreNativeManager
-			.DidNotReceive()
+			.CoreNativeManager.DidNotReceive()
 			.SetWindowPos(
 				Arg.Any<HWND>(),
 				Arg.Any<HWND>(),

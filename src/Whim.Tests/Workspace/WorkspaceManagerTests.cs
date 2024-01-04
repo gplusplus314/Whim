@@ -17,29 +17,25 @@ public class WorkspaceManagerCustomization : ICustomization
 	{
 		// By default, create two monitors.
 		IMonitor monitor1 = Substitute.For<IMonitor>();
-		monitor1
-			.WorkingArea
-			.Returns(
-				new Rectangle<int>()
-				{
-					X = 0,
-					Y = 0,
-					Width = 1920,
-					Height = 1080
-				}
-			);
+		monitor1.WorkingArea.Returns(
+			new Rectangle<int>()
+			{
+				X = 0,
+				Y = 0,
+				Width = 1920,
+				Height = 1080
+			}
+		);
 		IMonitor monitor2 = Substitute.For<IMonitor>();
-		monitor2
-			.WorkingArea
-			.Returns(
-				new Rectangle<int>()
-				{
-					X = 1920,
-					Y = 360,
-					Width = 1080,
-					Height = 720
-				}
-			);
+		monitor2.WorkingArea.Returns(
+			new Rectangle<int>()
+			{
+				X = 1920,
+				Y = 360,
+				Width = 1080,
+				Height = 720
+			}
+		);
 
 		IMonitor[] monitors = new[] { monitor1, monitor2 };
 		fixture.Inject(monitors);
@@ -79,6 +75,10 @@ public class WorkspaceManagerTests
 		if (monitors.Length > 0)
 		{
 			ctx.MonitorManager.ActiveMonitor.Returns(monitors[activeMonitorIndex]);
+
+			ctx.MonitorManager.GetPreviousMonitor(monitors[activeMonitorIndex])
+				.Returns(monitors[(activeMonitorIndex - 1).Mod(monitors.Length)]);
+			ctx.MonitorManager.GetNextMonitor(monitors[activeMonitorIndex]);
 		}
 	}
 
@@ -881,6 +881,95 @@ public class WorkspaceManagerTests
 		activatedWorkspace.Received(1).AddWindow(window);
 		Assert.Equal(workspaces[activatedWorkspaceIdx], workspaceManager.GetWorkspaceForWindow(window));
 	}
+	#endregion
+
+	#region SwapActiveWorkspaceWithAdjacentMonitor
+	[Theory]
+	[InlineAutoSubstituteData<WorkspaceManagerCustomization>(false)]
+	[InlineAutoSubstituteData<WorkspaceManagerCustomization>(true)]
+	internal void SwapActiveWorkspaceWithAdjacentMonitor_NoAdjacentMonitor(
+		bool reverse,
+		IContext ctx,
+		IInternalContext internalCtx
+	)
+	{
+		// Given there is only a single monitor and workspace...
+		IMonitor[] monitors = new[] { ctx.MonitorManager.ActiveMonitor };
+		SetupMonitors(ctx, monitors);
+		IWorkspace[] workspaces = CreateWorkspaces(1);
+		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+
+		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
+
+		ClearWorkspaceReceivedCalls(workspaces);
+
+		// When SwapActiveWorkspaceWithAdjacentMonitor is called, then no event is raised
+		CustomAssert.DoesNotRaise<MonitorWorkspaceChangedEventArgs>(
+			h => workspaceManager.MonitorWorkspaceChanged += h,
+			h => workspaceManager.MonitorWorkspaceChanged -= h,
+			() => workspaceManager.SwapActiveWorkspaceWithAdjacentMonitor(reverse)
+		);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
+	internal void SwapActiveWorkspaceWithAdjacentMonitor_CouldNotFindWorkspace(
+		IContext ctx,
+		IInternalContext internalCtx,
+		IMonitor[] monitors
+	)
+	{
+		// Given a fake monitor is provided
+		IWorkspace[] workspaces = CreateWorkspaces(2);
+		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+
+		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
+
+		ClearWorkspaceReceivedCalls(workspaces);
+
+		ctx.MonitorManager.GetNextMonitor(Arg.Any<IMonitor>()).Returns(Substitute.For<IMonitor>());
+
+		// When SwapActiveWorkspaceWithAdjacentMonitor is called, then no event is raised
+		CustomAssert.DoesNotRaise<MonitorWorkspaceChangedEventArgs>(
+			h => workspaceManager.MonitorWorkspaceChanged += h,
+			h => workspaceManager.MonitorWorkspaceChanged -= h,
+			() => workspaceManager.SwapActiveWorkspaceWithAdjacentMonitor(reverse: false)
+		);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
+	internal void SwapActiveWorkspaceWithAdjacentMonitor_Success(
+		IContext ctx,
+		IInternalContext internalCtx,
+		IMonitor[] monitors
+	)
+	{
+		// Given there are two workspaces and monitors
+		IWorkspace[] workspaces = CreateWorkspaces(2);
+		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+
+		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
+
+		ClearWorkspaceReceivedCalls(workspaces);
+
+		ctx.MonitorManager.GetNextMonitor(Arg.Any<IMonitor>()).Returns(monitors[1]);
+
+		// When SwapActiveWorkspaceWithAdjacentMonitor is called, then an event is raised
+		var result = Assert.Raises<MonitorWorkspaceChangedEventArgs>(
+			h => workspaceManager.MonitorWorkspaceChanged += h,
+			h => workspaceManager.MonitorWorkspaceChanged -= h,
+			() => workspaceManager.SwapActiveWorkspaceWithAdjacentMonitor(reverse: false)
+		);
+
+		// Then the raised event will match the expected
+		Assert.Equal(monitors[0], result.Arguments.Monitor);
+		Assert.Equal(workspaces[1], result.Arguments.CurrentWorkspace);
+		Assert.Equal(workspaces[0], result.Arguments.PreviousWorkspace);
+
+		// The old workspace is deactivated, the new workspace is laid out, and the first window is
+		// focused.
+		workspaces[0].Received(1).DoLayout();
+		workspaces[1].Received(1).DoLayout();
+	}
 
 	#endregion
 
@@ -1045,7 +1134,7 @@ public class WorkspaceManagerTests
 	}
 
 	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
-	internal void WindowAdded_RouterToActive(
+	internal void WindowAdded_RouteToActiveWorkspace(
 		IContext ctx,
 		IInternalContext internalCtx,
 		IMonitor[] monitors,
@@ -1055,13 +1144,76 @@ public class WorkspaceManagerTests
 		// Given
 		IWorkspace[] workspaces = CreateWorkspaces(2);
 		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+		workspaceManager.Activate(workspaces[0], monitors[0]);
 
 		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
 		ClearWorkspaceReceivedCalls(workspaces);
 
 		// There is a router which routes the window to the active workspace
 		ctx.RouterManager.RouteWindow(window).Returns((IWorkspace?)null);
-		ctx.RouterManager.RouteToActiveWorkspace.Returns(true);
+		ctx.RouterManager.RouterOptions.Returns(RouterOptions.RouteToActiveWorkspace);
+
+		// When a window is added
+		Assert.RaisedEvent<RouteEventArgs> routeEvent = Assert.Raises<RouteEventArgs>(
+			h => workspaceManager.WindowRouted += h,
+			h => workspaceManager.WindowRouted -= h,
+			() => workspaceManager.WindowAdded(window)
+		);
+
+		// Then the window is added to the active workspace
+		Assert_WindowAddedToWorkspace1(workspaces, window, routeEvent);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
+	internal void WindowAdded_RouteToLastTrackedActiveWorkspace(
+		IContext ctx,
+		IInternalContext internalCtx,
+		IMonitor[] monitors,
+		IWindow window
+	)
+	{
+		// Given
+		IWorkspace[] workspaces = CreateWorkspaces(2);
+		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+		workspaceManager.Activate(workspaces[0], monitors[0]);
+
+		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
+		ClearWorkspaceReceivedCalls(workspaces);
+
+		// There is a router which routes the window to the last tracked active workspace
+		ctx.RouterManager.RouteWindow(window).Returns((IWorkspace?)null);
+		ctx.RouterManager.RouterOptions.Returns(RouterOptions.RouteToLastTrackedActiveWorkspace);
+
+		// When a window is added
+		Assert.RaisedEvent<RouteEventArgs> routeEvent = Assert.Raises<RouteEventArgs>(
+			h => workspaceManager.WindowRouted += h,
+			h => workspaceManager.WindowRouted -= h,
+			() => workspaceManager.WindowAdded(window)
+		);
+
+		// Then the window is added to the active workspace
+		Assert_WindowAddedToWorkspace1(workspaces, window, routeEvent);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
+	internal void WindowAdded_RouteToLaunchedWorkspace(
+		IContext ctx,
+		IInternalContext internalCtx,
+		IMonitor[] monitors,
+		IWindow window
+	)
+	{
+		// Given
+		IWorkspace[] workspaces = CreateWorkspaces(2);
+		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+		workspaceManager.Activate(workspaces[0], monitors[0]);
+
+		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
+		ClearWorkspaceReceivedCalls(workspaces);
+
+		// There is a router which routes the window to the last tracked active workspace
+		ctx.RouterManager.RouteWindow(window).Returns((IWorkspace?)null);
+		ctx.RouterManager.RouterOptions.Returns(RouterOptions.RouteToLaunchedWorkspace);
 
 		// When a window is added
 		Assert.RaisedEvent<RouteEventArgs> routeEvent = Assert.Raises<RouteEventArgs>(
@@ -1085,6 +1237,33 @@ public class WorkspaceManagerTests
 
 		Assert.Equal(workspaces[0], routeEvent.Arguments.CurrentWorkspace);
 		Assert.Equal(window, routeEvent.Arguments.Window);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
+	internal void WindowAdded_WindowIsMinimized(
+		IContext ctx,
+		IInternalContext internalCtx,
+		IMonitor[] monitors,
+		IWindow window
+	)
+	{
+		// Given
+		window.IsMinimized.Returns(true);
+
+		IWorkspace[] workspaces = CreateWorkspaces(2);
+		WorkspaceManagerTestWrapper workspaceManager = CreateSut(ctx, internalCtx, workspaces);
+		workspaceManager.Activate(workspaces[0], monitors[0]);
+
+		ActivateWorkspacesOnMonitors(workspaceManager, workspaces, monitors);
+		ClearWorkspaceReceivedCalls(workspaces);
+
+		// When a window is added
+		workspaceManager.WindowAdded(window);
+
+		// Then the window is not added to the workspace, and MinimizeWindowStart is called
+		workspaces[0].DidNotReceive().AddWindow(window);
+		workspaces[1].DidNotReceive().AddWindow(window);
+		workspaces[0].Received(1).MinimizeWindowStart(window);
 	}
 	#endregion
 
@@ -1612,9 +1791,7 @@ public class WorkspaceManagerTests
 		workspaceManager.WindowMinimizeStart(window);
 
 		// Then the workspace is notified
-		((IInternalWorkspace)workspace)
-			.Received(1)
-			.WindowMinimizeStart(window);
+		workspace.Received(1).MinimizeWindowStart(window);
 	}
 	#endregion
 
@@ -1634,9 +1811,7 @@ public class WorkspaceManagerTests
 		workspaceManager.WindowMinimizeEnd(window);
 
 		// Then the window is routed to the workspace
-		((IInternalWorkspace)workspace)
-			.Received(1)
-			.WindowMinimizeEnd(window);
+		workspace.Received(1).MinimizeWindowEnd(window);
 	}
 
 	[Theory, AutoSubstituteData<WorkspaceManagerCustomization>]
@@ -1651,9 +1826,7 @@ public class WorkspaceManagerTests
 		workspaceManager.WindowMinimizeEnd(window);
 
 		// Then the workspace is not notified
-		((IInternalWorkspace)workspace)
-			.DidNotReceive()
-			.WindowMinimizeEnd(window);
+		workspace.DidNotReceive().MinimizeWindowEnd(window);
 	}
 	#endregion
 

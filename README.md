@@ -34,6 +34,9 @@ context.WorkspaceManager.Add("Alt");
 // Set up layout engines.
 context.WorkspaceManager.CreateLayoutEngines = () => new CreateLeafLayoutEngine[]
 {
+    (id) => SliceLayouts.CreateMultiColumnLayout(context, sliceLayoutPlugin, id, 1, 2, 0),
+    (id) => SliceLayouts.CreatePrimaryStackLayout(context, sliceLayoutPlugin, id),
+    (id) => SliceLayouts.CreateSecondaryPrimaryLayout(context, sliceLayoutPlugin, id),
     (id) => new TreeLayoutEngine(context, treeLayoutPlugin, id),
     (id) => new ColumnLayoutEngine(id)
 };
@@ -64,6 +67,74 @@ context.PluginManager.AddPlugin(barPlugin);
 ```
 
 Each plugin needs to be added to the `context` object.
+
+### Layout Engines
+
+#### `FocusLayoutEngine`
+
+`FocusLayoutEngine` is a layout engine that displays one window at a time:
+
+- Calling `SwapWindowInDirection` will swap the current window with the window in the specified direction.
+- Calling `FocusWindowInDirection` will focus the window in the specified direction.
+
+Windows which are not focused are minimized to the taskbar.
+
+#### `SliceLayoutEngine`
+
+`SliceLayoutEngine` is a layout engine that internally stores an ordered list of `IWindow`s. The monitor is divided into a number of `IArea`s. Each `IArea` corresponds to a "slice" of the `IWindow` list.
+
+There are three types of `IArea`s:
+
+- `ParentArea`: An area that can have any `IArea` implementation as a child
+- `SliceArea`: An ordered area that can have any `IWindow` as a child. There can be multiple `SliceArea`s in a `SliceLayoutEngine`, and they are ordered by the `Order` property/parameter.
+- `OverflowArea`: An area that can have any infinite number of `IWindow`s as a child. There can be only one `OverflowArea` in a `SliceLayoutEngine` - any additional `OverflowArea`s will be ignored. If no `OverflowArea` is specified, the `SliceLayoutEngine` will replace the last `SliceArea` with an `OverflowArea`.
+
+`OverflowArea`s are implicitly the last ordered area in the layout engine, in comparison to all `SliceArea`s.
+
+The `SliceLayouts` contains methods to create a few common layouts:
+
+- primary/stack (master/stack)
+- multi-column layout
+- three-column layout, with the middle column being the primary
+
+Arbitrary layouts can be created by nesting areas.
+
+```csharp
+context.WorkspaceManager.CreateLayoutEngines = () => new CreateLeafLayoutEngine[]
+{
+    (id) => new SliceLayoutEngine(
+        context,
+        sliceLayoutPlugin,
+        id,
+        new ParentArea(
+            isRow: true,
+            (0.5, new OverflowArea()),
+            (0.5, new SliceArea(order: 0, maxChildren: 2))
+        )
+    ) { Name = "Overflow on left" },
+
+    (id) => SliceLayouts.CreateMultiColumnLayout(context, sliceLayoutPlugin, id, 1, 2, 0),
+    (id) => SliceLayouts.CreatePrimaryStackLayout(context, sliceLayoutPlugin, id)
+};
+```
+
+`SliceLayoutEngine` requires the `SliceLayoutPlugin` to be added to the `context` object:
+
+```csharp
+SliceLayoutPlugin sliceLayoutPlugin = new(context);
+context.PluginManager.AddPlugin(sliceLayoutPlugin);
+```
+
+#### `TreeLayoutEngine`
+
+`TreeLayoutEngine` is a layout that allows users to create arbitrary grid layouts. Unlike `SliceLayoutEngine`, windows can can be added in any location.
+
+`TreeLayoutEngine` requires the `TreeLayoutPlugin` to be added to the `context` object:
+
+```csharp
+TreeLayoutPlugin treeLayoutPlugin = new(context);
+context.PluginManager.AddPlugin(treeLayoutPlugin);
+```
 
 ### Commands
 
@@ -216,6 +287,19 @@ See [`GapsCommands.cs`](src/Whim.Gaps/GapsCommands.cs).
 | `whim.gaps.inner.increase` | Increase inner gap | <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> |
 | `whim.gaps.inner.decrease` | Decrease inner gap | <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>J</kbd> |
 
+##### Slice Layout Plugin Commands
+
+See [`SliceLayoutCommands.cs`](src/Whim.SliceLayout/SliceLayoutCommands.cs).
+
+| Identifier                                    | Title                              | Keybind            |
+| --------------------------------------------- | ---------------------------------- | ------------------ |
+| `whim.slice_layout.set_insertion_type.swap`   | Set slice insertion type to swap   | No default keybind |
+| `whim.slice_layout.set_insertion_type.rotate` | Set slice insertion type to rotate | No default keybind |
+| `whim.slice_layout.window.promote`            | Promote window in stack            | No default keybind |
+| `whim.slice_layout.window.demote`             | Demote window in stack             | No default keybind |
+| `whim.slice_layout.focus.promote`             | Promote focus in stack             | No default keybind |
+| `whim.slice_layout.focus.demote`              | Demote focus in stack              | No default keybind |
+
 ##### Tree Layout Plugin Commands
 
 See [`TreeLayoutCommands.cs`](src/Whim.TreeLayout/TreeLayoutCommands.cs).
@@ -243,6 +327,8 @@ context.RouterManager.Add((window) =>
     return null;
 });
 ```
+
+`IRouterManager` has a `RouterOptions` property which can configure how new windows are routed - see [`RouterOptions`](src/Whim/Router/RouterOptions.cs).
 
 ### Filtering
 
@@ -284,6 +370,16 @@ if (context.Logger.Config.DebugSink is SinkConfig debugSinkConfig)
     debugSinkConfig.MinLogLevel = LogLevel.Error;
 }
 ```
+
+Logging can be changed during runtime to be more restrictive, but cannot be made more permissive than the initial configuration.
+
+## Automatic Updating
+
+The `Whim.Updater` plugin is in `alpha` (especially as Whim hasn't started releasing non-`alpha` builds). If the updater fails, you can manually update Whim by downloading the latest release from the [releases page](https://github.com/dalyIsaac/Whim/releases).
+
+The updater will show a notification when a new version is available. Clicking on the notification will show the changelog for the delta between the current version and the latest version.
+
+The `UpdaterConfig` supports specifying the `ReleaseChannel` and `UpdateFrequency`.
 
 ## Architecture
 
@@ -332,15 +428,28 @@ Implementations of Whim's `ILayoutEngine` should be immutable. This was done to 
 
 ## Contributing
 
-After cloning, make sure to run in the root Whim directory:
+Please file an issue if you find any bugs or have any feature requests, or ask in the Discord. Pull requests are welcome.
+
+Work is currently being tracked in the [project board](https://github.com/users/dalyIsaac/projects/2/views/7).
+
+### Development Environment Setup
+
+1. Clone this repo
+2. Install tools for the Windows App SDK:
+   1. Go to the [Install tools for the Windows App SDK](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/set-up-your-development-environment) page
+   2. Follow the instructions for [winget for C# developers](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/set-up-your-development-environment?tabs=cs-vs-community%2Ccpp-vs-community%2Cvs-2022-17-1-a%2Cvs-2022-17-1-b#for-c-developers), or [installing Visual Studio](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/set-up-your-development-environment?tabs=cs-vs-community%2Ccpp-vs-community%2Cvs-2022-17-1-a%2Cvs-2022-17-1-b#install-visual-studio)
+
+After cloning, make sure to run the following in a shell in the root Whim directory:
 
 ```shell
 git config core.autocrlf true
 ```
 
-Please file an issue if you find any bugs or have any feature requests. Pull requests are welcome.
+If you've already made changes with `core.autocrlf` set to `false`, you can fix the line endings with:
 
-Work is currently being tracked in the [project board](https://github.com/users/dalyIsaac/projects/2/views/7).
+```shell
+git add . --renormalize
+```
 
 Before making a pull request, please install the tools specified in [`.config/dotnet-tools.json`](.config/dotnet-tools.json):
 
@@ -351,7 +460,46 @@ dotnet tool run dotnet-csharpier .
 dotnet tool run xstyler --recursive --d . --config ./.xamlstylerrc
 ```
 
-Tests have not been written for all of Whim's code, but they are encouraged. Tests have not been written for UI code-behind files, as I committed to xUnit before I realized that Windows App SDK isn't easily compatible with xUnit. I'm open to suggestions on how to test UI code-behind files.
+### Building
+
+#### Visual Studio
+
+Visual Studio 2022 is the easiest way to get started with working on Whim. Check the following:
+
+- `nuget.org` is added to the [Package Sources](https://learn.microsoft.com/en-us/nuget/consume-packages/install-use-packages-visual-studio#package-sources)
+- The **Configuration Manager** is set to `Debug` and your target architecture is correct (e.g. `x64`).
+- Each project's platform matches the current target architecture.
+- `Whim.Runner` is set as the startup project.
+- The **green Start arrow** is labeled `Whim.Runner (Unpackaged)`.
+
+**Recommended Extensions:**
+
+- [CSharpier](https://marketplace.visualstudio.com/items?itemName=csharpier.CSharpier)
+- [XAML Styler for Visual Studio 2022](https://marketplace.visualstudio.com/items?itemName=TeamXavalon.XAMLStyler2022)
+
+> [!WARNING]
+>
+> Windows App SDK 1.4 introduced a bug which causes Visual Studio to crash Whim when debugging. Make sure to apply the workaround from <https://github.com/microsoft/microsoft-ui-xaml/issues/9008#issuecomment-1773734685/>.
+
+#### Visual Studio Code
+
+The Whim repository includes a `.vscode` directory with a [`launch.json`](.vscode/launch.json) file. This file contains a `Launch Whim.Runner` configuration which can be used to debug Whim in Visual Studio Code. Unfortunately tests do not appear in Visual Studio Code's Test Explorer.
+
+Check that `nuget.org` is added to the [Package Sources](https://learn.microsoft.com/en-us/nuget/consume-packages/install-use-packages-visual-studio#package-sources).
+
+Tasks to build, test, and format XAML can be found in [`tasks.json`](.vscode/tasks.json).
+
+To see the recommended extensions, open the Command Palette and run `Extensions: Show Recommended Extensions`.
+
+### Unhandled Exception Handling
+
+`IContext` has an `UncaughtExceptionHandling` property to specify how to handle uncaught exceptions. When developing, it's recommended to set this to `UncaughtExceptionHandling.Shutdown` to shutdown Whim when an uncaught exception occurs. This will make it easier to debug the exception.
+
+All uncaught exceptions will be logged as `Fatal`.
+
+### Tests
+
+Tests have not been written for all of Whim's code, but are encouraged. Tests have not been written for UI code-behind files, as I committed to xUnit before I realized that Windows App SDK isn't easily compatible with xUnit. I'm open to suggestions on how to test UI code-behind files.
 
 To use your existing configuration, make sure to update the `#r` directives to point to your newly compiled DLLs. In other words, replace `C:\Users\<USERNAME>\AppData\Local\Programs\Whim` with `C:\path\to\repo\Whim`:
 
@@ -379,36 +527,3 @@ To use your existing configuration, make sure to update the `#r` directives to p
 // #r "C:\Users\dalyisaac\AppData\Local\Programs\Whim\plugins\Whim.TreeLayout.Bar\Whim.TreeLayout.Bar.dll"
 // #r "C:\Users\dalyisaac\AppData\Local\Programs\Whim\plugins\Whim.TreeLayout.CommandPalette\Whim.TreeLayout.CommandPalette.dll"
 ```
-
-### Visual Studio
-
-Visual Studio 2022 is the easiest way to get started with working on Whim. Check the following:
-
-- The `.NET Desktop Development` workload is installed (see the Visual Studio Installer).
-- The **Configuration Manager** is set to `Debug` and your target architecture (e.g. `x64`).
-- Each project's platform matches the current target architecture.
-- `Whim.Runner` is set as the startup project.
-- The **green Start arrow** is labeled `Whim.Runner (Unpackaged)`.
-
-**Recommended Extensions:**
-
-- [CSharpier](https://marketplace.visualstudio.com/items?itemName=csharpier.CSharpier)
-- [XAML Styler for Visual Studio 2022](https://marketplace.visualstudio.com/items?itemName=TeamXavalon.XAMLStyler2022)
-
-> [!WARNING]
->
-> Windows App SDK 1.4 introduced a bug which causes Visual Studio to crash Whim when debugging. Make sure to apply the workaround from <https://github.com/microsoft/microsoft-ui-xaml/issues/9008#issuecomment-1773734685/>.
-
-### Visual Studio Code
-
-The Whim repository includes a `.vscode` directory with a [`launch.json`](.vscode/launch.json) file. This file contains a `Launch Whim.Runner` configuration which can be used to debug Whim in Visual Studio Code. Unfortunately tests do not appear in Visual Studio Code's Test Explorer.
-
-Tasks to build, test, and format XAML can be found in [`tasks.json`](.vscode/tasks.json).
-
-To see the recommended extensions, open the Command Palette and run `Extensions: Show Recommended Extensions`.
-
-### Unhandled Exception Handling
-
-`IContext` has an `UncaughtExceptionHandling` property to specify how to handle uncaught exceptions. When developing, it's recommended to set this to `UncaughtExceptionHandling.Shutdown` to shutdown Whim when an uncaught exception occurs. This will make it easier to debug the exception.
-
-All uncaught exceptions will be logged as `Fatal`.

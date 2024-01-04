@@ -96,8 +96,8 @@ public record GapsLayoutEngine : BaseProxyLayoutEngine
 	}
 
 	/// <inheritdoc />
-	public override void FocusWindowInDirection(Direction direction, IWindow window) =>
-		InnerLayoutEngine.FocusWindowInDirection(direction, window);
+	public override ILayoutEngine FocusWindowInDirection(Direction direction, IWindow window) =>
+		UpdateInner(InnerLayoutEngine.FocusWindowInDirection(direction, window));
 
 	/// <inheritdoc />
 	public override IWindow? GetFirstWindow() => InnerLayoutEngine.GetFirstWindow();
@@ -116,4 +116,16 @@ public record GapsLayoutEngine : BaseProxyLayoutEngine
 	/// <inheritdoc />
 	public override ILayoutEngine SwapWindowInDirection(Direction direction, IWindow window) =>
 		UpdateInner(InnerLayoutEngine.SwapWindowInDirection(direction, window));
+
+	/// <inheritdoc />
+	public override ILayoutEngine MinimizeWindowStart(IWindow window) =>
+		UpdateInner(InnerLayoutEngine.MinimizeWindowStart(window));
+
+	/// <inheritdoc />
+	public override ILayoutEngine MinimizeWindowEnd(IWindow window) =>
+		UpdateInner(InnerLayoutEngine.MinimizeWindowEnd(window));
+
+	/// <inheritdoc />
+	public override ILayoutEngine PerformCustomAction<T>(LayoutEngineCustomAction<T> action) =>
+		UpdateInner(InnerLayoutEngine.PerformCustomAction(action));
 }

@@ -443,18 +443,44 @@ public class GapsLayoutEngineTests
 	}
 
 	[Theory, AutoSubstituteData]
-	public void FocusWindowInDirection(IWindow window, ILayoutEngine innerLayoutEngine)
+	public void FocusWindowInDirection_Same(IWindow window, ILayoutEngine innerLayoutEngine)
 	{
 		// Given
 		Direction direction = Direction.Left;
 		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
 
 		GapsLayoutEngine gapsLayoutEngine = new(gapsConfig, innerLayoutEngine);
+		innerLayoutEngine.FocusWindowInDirection(direction, window).Returns(innerLayoutEngine);
 
 		// When
-		gapsLayoutEngine.FocusWindowInDirection(direction, window);
+		ILayoutEngine newLayoutEngine = gapsLayoutEngine.FocusWindowInDirection(direction, window);
 
 		// Then
+		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
+		innerLayoutEngine.Received(1).FocusWindowInDirection(direction, window);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void FocusWindowInDirection_NotSame(
+		IWindow window,
+		ILayoutEngine innerLayoutEngine,
+		ILayoutEngine newInnerLayoutEngine
+	)
+	{
+		// Given
+		Direction direction = Direction.Left;
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+		innerLayoutEngine.FocusWindowInDirection(direction, window).Returns(newInnerLayoutEngine);
+
+		GapsLayoutEngine gapsLayoutEngine = new(gapsConfig, innerLayoutEngine);
+
+		// When
+		ILayoutEngine newLayoutEngine = gapsLayoutEngine.FocusWindowInDirection(direction, window);
+
+		// Then
+		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).FocusWindowInDirection(direction, window);
 	}
 
@@ -473,6 +499,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).AddWindow(window);
 	}
 
@@ -490,6 +517,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).AddWindow(window);
 	}
 	#endregion
@@ -509,6 +537,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).RemoveWindow(window);
 	}
 
@@ -526,6 +555,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).RemoveWindow(window);
 	}
 	#endregion
@@ -547,6 +577,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).MoveWindowEdgesInDirection(direction, deltas, window);
 	}
 
@@ -570,6 +601,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).MoveWindowEdgesInDirection(direction, deltas, window);
 	}
 	#endregion
@@ -590,6 +622,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).MoveWindowToPoint(window, point);
 	}
 
@@ -612,6 +645,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).MoveWindowToPoint(window, point);
 	}
 	#endregion
@@ -632,6 +666,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).SwapWindowInDirection(direction, window);
 	}
 
@@ -654,6 +689,7 @@ public class GapsLayoutEngineTests
 
 		// Then
 		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
 		innerLayoutEngine.Received(1).SwapWindowInDirection(direction, window);
 	}
 	#endregion
@@ -673,5 +709,123 @@ public class GapsLayoutEngineTests
 		// Then
 		Assert.Same(window, firstWindow);
 		innerLayoutEngine.Received(1).GetFirstWindow();
+	}
+
+	[Theory, AutoSubstituteData]
+	public void PerformCustomAction_NotSame(ILayoutEngine innerLayoutEngine, ILayoutEngine performCustomActionResult)
+	{
+		// Given
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+
+		LayoutEngineCustomAction<string> action =
+			new()
+			{
+				Name = "Action",
+				Payload = "payload",
+				Window = Substitute.For<IWindow>()
+			};
+		innerLayoutEngine.PerformCustomAction(action).Returns(performCustomActionResult);
+
+		GapsLayoutEngine gapsLayoutEngine = new(gapsConfig, innerLayoutEngine);
+
+		// When
+		ILayoutEngine newLayoutEngine = gapsLayoutEngine.PerformCustomAction(action);
+
+		// Then
+		Assert.NotSame(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
+		innerLayoutEngine.Received(1).PerformCustomAction(action);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void PerformCustomAction_Same(ILayoutEngine innerLayoutEngine)
+	{
+		// Given
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+
+		LayoutEngineCustomAction<string> action =
+			new()
+			{
+				Name = "Action",
+				Payload = "payload",
+				Window = Substitute.For<IWindow>()
+			};
+		innerLayoutEngine.PerformCustomAction(action).Returns(innerLayoutEngine);
+
+		GapsLayoutEngine gapsLayoutEngine = new(gapsConfig, innerLayoutEngine);
+
+		// When
+		ILayoutEngine newLayoutEngine = gapsLayoutEngine.PerformCustomAction(action);
+
+		// Then
+		Assert.Same(gapsLayoutEngine, newLayoutEngine);
+		Assert.IsType<GapsLayoutEngine>(newLayoutEngine);
+		innerLayoutEngine.Received(1).PerformCustomAction(action);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowStart_NotSame(ILayoutEngine innerLayoutEngine, ILayoutEngine minimizeWindowStartResult)
+	{
+		// Given
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+		GapsLayoutEngine engine = new(gapsConfig, innerLayoutEngine);
+		IWindow window = Substitute.For<IWindow>();
+		innerLayoutEngine.MinimizeWindowStart(window).Returns(minimizeWindowStartResult);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowStart(window);
+
+		// Then
+		Assert.NotSame(engine, newEngine);
+		Assert.IsType<GapsLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowStart_Same(ILayoutEngine innerLayoutEngine, IWindow window)
+	{
+		// Given
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+		GapsLayoutEngine engine = new(gapsConfig, innerLayoutEngine);
+		innerLayoutEngine.MinimizeWindowStart(window).Returns(innerLayoutEngine);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowStart(window);
+
+		// Then
+		Assert.Same(engine, newEngine);
+		Assert.IsType<GapsLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowEnd_NotSame(ILayoutEngine innerLayoutEngine, ILayoutEngine minimizeWindowEndResult)
+	{
+		// Given
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+		GapsLayoutEngine engine = new(gapsConfig, innerLayoutEngine);
+		IWindow window = Substitute.For<IWindow>();
+		innerLayoutEngine.MinimizeWindowEnd(window).Returns(minimizeWindowEndResult);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowEnd(window);
+
+		// Then
+		Assert.NotSame(engine, newEngine);
+		Assert.IsType<GapsLayoutEngine>(newEngine);
+	}
+
+	[Theory, AutoSubstituteData]
+	public void MinimizeWindowEnd_Same(ILayoutEngine innerLayoutEngine, IWindow window)
+	{
+		// Given
+		GapsConfig gapsConfig = new() { OuterGap = 10, InnerGap = 5 };
+		GapsLayoutEngine engine = new(gapsConfig, innerLayoutEngine);
+		innerLayoutEngine.MinimizeWindowEnd(window).Returns(innerLayoutEngine);
+
+		// When
+		ILayoutEngine newEngine = engine.MinimizeWindowEnd(window);
+
+		// Then
+		Assert.Same(engine, newEngine);
+		Assert.IsType<GapsLayoutEngine>(newEngine);
 	}
 }
