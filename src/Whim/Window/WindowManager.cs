@@ -261,6 +261,9 @@ internal class WindowManager : IWindowManager, IInternalWindowManager
 			)
 			{
 				// Even if the window was ignored, we need to fire OnWindowFocused.
+				Logger.Debug(
+					$"Window {hwnd} with event 0x{eventType:X4} was ignored, but still notifying listeners of focus"
+				);
 				OnWindowFocused(window);
 
 				_internalContext.DeferWindowPosManager.RecoverLayout();
@@ -273,7 +276,7 @@ internal class WindowManager : IWindowManager, IInternalWindowManager
 			}
 		}
 
-		Logger.Verbose($"Windows event 0x{eventType:X4} for {window}");
+		Logger.Debug($"Windows event 0x{eventType:X4} for {window}");
 		switch (eventType)
 		{
 			// `EVENT_OBJECT_SHOW` is handled by the code above to `AddWindow`.
@@ -352,7 +355,6 @@ internal class WindowManager : IWindowManager, IInternalWindowManager
 		}
 
 		_windows[hwnd] = window;
-		_internalContext.WorkspaceManager.WindowAdded(window);
 		OnWindowAdded(window);
 
 		return window;
@@ -367,7 +369,6 @@ internal class WindowManager : IWindowManager, IInternalWindowManager
 	{
 		Logger.Debug($"Window focused: {window}");
 		_internalContext.MonitorManager.WindowFocused(window);
-		_internalContext.WorkspaceManager.WindowFocused(window);
 		WindowFocused?.Invoke(this, new WindowFocusedEventArgs() { Window = window });
 	}
 
@@ -396,7 +397,6 @@ internal class WindowManager : IWindowManager, IInternalWindowManager
 		Logger.Debug($"Window removed: {window}");
 		_windows.TryRemove(window.Handle, out _);
 		_handledLocationRestoringWindows.Remove(window);
-		_internalContext.WorkspaceManager.WindowRemoved(window);
 		WindowRemoved?.Invoke(this, new WindowEventArgs() { Window = window });
 	}
 
@@ -591,14 +591,12 @@ internal class WindowManager : IWindowManager, IInternalWindowManager
 	private void OnWindowMinimizeStart(IWindow window)
 	{
 		Logger.Debug($"Window minimize started: {window}");
-		_internalContext.WorkspaceManager.WindowMinimizeStart(window);
 		WindowMinimizeStart?.Invoke(this, new WindowEventArgs() { Window = window });
 	}
 
 	private void OnWindowMinimizeEnd(IWindow window)
 	{
 		Logger.Debug($"Window minimize ended: {window}");
-		_internalContext.WorkspaceManager.WindowMinimizeEnd(window);
 		WindowMinimizeEnd?.Invoke(this, new WindowEventArgs() { Window = window });
 	}
 

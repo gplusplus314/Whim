@@ -206,6 +206,7 @@ public record FocusLayoutEngine : ILayoutEngine
 		};
 		newIndex = newIndex.Mod(_list.Count);
 
+		_list[newIndex].Focus();
 		return new FocusLayoutEngine(this, _list, newIndex, _maximized, false);
 	}
 
@@ -247,14 +248,20 @@ public record FocusLayoutEngine : ILayoutEngine
 	{
 		Logger.Debug($"Minimizing window {window} in layout engine {Name}");
 
+		if (!_list.Contains(window))
+		{
+			return new FocusLayoutEngine(
+				this,
+				_list.Add(window),
+				_list.Count,
+				_maximized,
+				_list.IsEmpty || _hideFocusedWindow
+			);
+		}
+
 		if (window.Equals(_list[_focusedIndex]))
 		{
 			return new FocusLayoutEngine(this, _list, _focusedIndex, _maximized, true);
-		}
-
-		if (!_list.Contains(window))
-		{
-			return new FocusLayoutEngine(this, _list.Add(window), _list.Count, _maximized, _hideFocusedWindow);
 		}
 
 		return this;
@@ -286,6 +293,14 @@ public record FocusLayoutEngine : ILayoutEngine
 		if (action.Name == $"{Name}.toggle_maximized")
 		{
 			return new FocusLayoutEngine(this, _list, _focusedIndex, !_maximized, _hideFocusedWindow);
+		}
+		if (action.Name == $"{Name}.set_maximized")
+		{
+			return new FocusLayoutEngine(this, _list, _focusedIndex, true, _hideFocusedWindow);
+		}
+		if (action.Name == $"{Name}.unset_maximized")
+		{
+			return new FocusLayoutEngine(this, _list, _focusedIndex, false, _hideFocusedWindow);
 		}
 
 		return this;

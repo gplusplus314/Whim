@@ -62,8 +62,9 @@ public class WorkspaceTests
 		Assert.Equal("Workspace2", workspace.Name);
 	}
 
+	#region TrySetLayoutEngineFromIndex
 	[Theory, AutoSubstituteData<WorkspaceCustomization>]
-	internal void TrySetLayoutEngine_CannotFindEngine(
+	internal void TrySetLayoutEngineFromIndex_LessThanZero(
 		IContext ctx,
 		IInternalContext internalCtx,
 		WorkspaceManagerTriggers triggers,
@@ -75,7 +76,7 @@ public class WorkspaceTests
 		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
 
 		// When
-		bool result = workspace.TrySetLayoutEngine("Layout2");
+		bool result = workspace.TrySetLayoutEngineFromIndex(-1);
 
 		// Then
 		Assert.False(result);
@@ -83,7 +84,97 @@ public class WorkspaceTests
 	}
 
 	[Theory, AutoSubstituteData<WorkspaceCustomization>]
-	internal void TrySetLayoutEngine_AlreadyActive(
+	internal void TrySetLayoutEngineFromIndex_GreaterThanCount(
+		IContext ctx,
+		IInternalContext internalCtx,
+		WorkspaceManagerTriggers triggers,
+		ILayoutEngine layoutEngine,
+		ILayoutEngine layoutEngine2
+	)
+	{
+		// Given
+		Workspace workspace =
+			new(ctx, internalCtx, triggers, "Workspace", new ILayoutEngine[] { layoutEngine, layoutEngine2 });
+		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
+
+		// When
+		bool result = workspace.TrySetLayoutEngineFromIndex(2);
+
+		// Then
+		Assert.False(result);
+		Assert.Same(activeLayoutEngine, workspace.ActiveLayoutEngine);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceCustomization>]
+	internal void TrySetLayoutEngineFromIndex_AlreadyActive(
+		IContext ctx,
+		IInternalContext internalCtx,
+		WorkspaceManagerTriggers triggers,
+		ILayoutEngine layoutEngine,
+		ILayoutEngine layoutEngine2
+	)
+	{
+		// Given
+		ctx.WorkspaceManager.GetMonitorForWorkspace(Arg.Any<IWorkspace>()).Returns(null as IMonitor);
+
+		Workspace workspace =
+			new(ctx, internalCtx, triggers, "Workspace", new ILayoutEngine[] { layoutEngine, layoutEngine2 });
+		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
+
+		// When
+		bool result = workspace.TrySetLayoutEngineFromIndex(0);
+
+		// Then
+		Assert.True(result);
+		Assert.Same(activeLayoutEngine, workspace.ActiveLayoutEngine);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceCustomization>]
+	internal void TrySetLayoutEngineFromIndex_Success(
+		IContext ctx,
+		IInternalContext internalCtx,
+		WorkspaceManagerTriggers triggers,
+		ILayoutEngine layoutEngine,
+		ILayoutEngine layoutEngine2
+	)
+	{
+		// Given
+		Workspace workspace =
+			new(ctx, internalCtx, triggers, "Workspace", new ILayoutEngine[] { layoutEngine, layoutEngine2 });
+		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
+
+		// When
+		bool result = workspace.TrySetLayoutEngineFromIndex(1);
+
+		// Then
+		Assert.True(result);
+		Assert.NotSame(activeLayoutEngine, workspace.ActiveLayoutEngine);
+	}
+	#endregion
+
+	#region TrySetLayoutEngineFromName
+	[Theory, AutoSubstituteData<WorkspaceCustomization>]
+	internal void TrySetLayoutEngineFromName_CannotFindEngine(
+		IContext ctx,
+		IInternalContext internalCtx,
+		WorkspaceManagerTriggers triggers,
+		ILayoutEngine layoutEngine
+	)
+	{
+		// Given
+		Workspace workspace = new(ctx, internalCtx, triggers, "Workspace", new ILayoutEngine[] { layoutEngine });
+		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
+
+		// When
+		bool result = workspace.TrySetLayoutEngineFromName("Layout2");
+
+		// Then
+		Assert.False(result);
+		Assert.Same(activeLayoutEngine, workspace.ActiveLayoutEngine);
+	}
+
+	[Theory, AutoSubstituteData<WorkspaceCustomization>]
+	internal void TrySetLayoutEngineFromName_AlreadyActive(
 		IContext ctx,
 		IInternalContext internalCtx,
 		WorkspaceManagerTriggers triggers,
@@ -98,7 +189,7 @@ public class WorkspaceTests
 		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
 
 		// When
-		bool result = workspace.TrySetLayoutEngine("Layout");
+		bool result = workspace.TrySetLayoutEngineFromName("Layout");
 
 		// Then
 		Assert.True(result);
@@ -106,7 +197,7 @@ public class WorkspaceTests
 	}
 
 	[Theory, AutoSubstituteData<WorkspaceCustomization>]
-	internal void TrySetLayoutEngine_Success(
+	internal void TrySetLayoutEngineFromName_Success(
 		IContext ctx,
 		IInternalContext internalCtx,
 		WorkspaceManagerTriggers triggers,
@@ -122,12 +213,13 @@ public class WorkspaceTests
 		ILayoutEngine activeLayoutEngine = workspace.ActiveLayoutEngine;
 
 		// When
-		bool result = workspace.TrySetLayoutEngine("Layout2");
+		bool result = workspace.TrySetLayoutEngineFromName("Layout2");
 
 		// Then
 		Assert.True(result);
 		Assert.NotSame(activeLayoutEngine, workspace.ActiveLayoutEngine);
 	}
+	#endregion
 
 	[Theory, AutoSubstituteData<WorkspaceCustomization>]
 	internal void Constructor_FailWhenNoLayoutEngines(
@@ -432,7 +524,7 @@ public class WorkspaceTests
 		ILayoutEngine givenEngine = workspace.ActiveLayoutEngine;
 
 		// When NextLayoutEngine is called
-		workspace.NextLayoutEngine();
+		workspace.CycleLayoutEngine(false);
 
 		// Then the active layout engine is set to the next one
 		Assert.True(Object.ReferenceEquals(layoutEngine2, workspace.ActiveLayoutEngine));
@@ -455,8 +547,8 @@ public class WorkspaceTests
 		ILayoutEngine givenEngine = workspace.ActiveLayoutEngine;
 
 		// When NextLayoutEngine is called
-		workspace.NextLayoutEngine();
-		workspace.NextLayoutEngine();
+		workspace.CycleLayoutEngine(false);
+		workspace.CycleLayoutEngine(false);
 
 		// Then the active layout engine is set to the first one
 		Assert.True(Object.ReferenceEquals(layoutEngine, workspace.ActiveLayoutEngine));
@@ -478,7 +570,7 @@ public class WorkspaceTests
 		ILayoutEngine givenEngine = workspace.ActiveLayoutEngine;
 
 		// When PreviousLayoutEngine is called
-		workspace.PreviousLayoutEngine();
+		workspace.CycleLayoutEngine(true);
 
 		// Then the active layout engine is set to the previous one
 		Assert.True(Object.ReferenceEquals(layoutEngine2, workspace.ActiveLayoutEngine));
@@ -500,8 +592,8 @@ public class WorkspaceTests
 		ILayoutEngine givenEngine = workspace.ActiveLayoutEngine;
 
 		// When PreviousLayoutEngine is called
-		workspace.PreviousLayoutEngine();
-		workspace.PreviousLayoutEngine();
+		workspace.CycleLayoutEngine(true);
+		workspace.CycleLayoutEngine(true);
 
 		// Then the active layout engine is set to the last one
 		Assert.True(Object.ReferenceEquals(layoutEngine, workspace.ActiveLayoutEngine));
@@ -1145,6 +1237,8 @@ public class WorkspaceTests
 
 		ILayoutEngine givenEngine = workspace.ActiveLayoutEngine;
 
+		window.ClearReceivedCalls();
+
 		// When MinimizeWindowEnd is called
 		workspace.MinimizeWindowEnd(window);
 
@@ -1152,6 +1246,7 @@ public class WorkspaceTests
 		givenEngine.Received(1).MinimizeWindowEnd(window);
 		layoutEngine2.DidNotReceive().MinimizeWindowEnd(window);
 		Assert.NotSame(givenEngine, workspace.ActiveLayoutEngine);
+		window.Received(1).Focus();
 	}
 
 	#region PerformCustomLayoutEngineAction
